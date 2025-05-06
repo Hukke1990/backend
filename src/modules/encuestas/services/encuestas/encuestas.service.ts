@@ -21,14 +21,14 @@ export class EncuestasService {
     const encuesta: Encuesta = this.encuestasRepository.create({
       ...dto,
       codigoRespuesta: v4(),
-      codigoresultados: v4(),
+      codigoResultados: v4(),
     });
 
     const encuestaGuardada = await this.encuestasRepository.save(encuesta);
     return {
       id: encuestaGuardada.id,
-      codigoRespuesta: encuestaGuardada.codigorepuesta,
-      codigoResultados: encuestaGuardada.codigoresultados,
+      codigoRespuesta: encuestaGuardada.codigoRespuesta,
+      codigoResultados: encuestaGuardada.codigoResultados,
     };
   }
 

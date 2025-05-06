@@ -1,11 +1,15 @@
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsUUID } from 'class-validator';
+import { CodigoTipoEnum } from '../enums/codigo-tipo.enum';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class ObtenerEncuestaDto {
-  @IsUUID()
+  @ApiProperty()
+  @IsUUID('4')
   @IsNotEmpty()
-  id: string;
+  codigo: string;
 
-  @IsString()
+  @ApiProperty({ enum: CodigoTipoEnum })
+  @IsEnum(CodigoTipoEnum)
   @IsNotEmpty()
-  usuarioId: string;
+  tipo: CodigoTipoEnum;
 }

@@ -14,9 +14,9 @@ export class Encuesta {
   preguntas: Pregunta[];
 
   @Column({ name: 'codigo_repuesta' })
-  codigorepuesta: string;
+  codigoRespuesta: string;
 
   @Column({ name: 'codigo_resultados' })
   @Exclude()
-  codigoresultados: string;
+  codigoResultados: string;
 }
