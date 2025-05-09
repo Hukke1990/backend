@@ -3,10 +3,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import configuration from './config/configuration';
 import { EncuestasModule } from './modules/encuestas/encuestas.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { RespuestasModule } from './modules/encuestas/respuesta/respuesta.module';
 
 @Module({
   imports: [
     EncuestasModule,
+    RespuestasModule,
     ConfigModule.forRoot({
       load: [configuration],
       isGlobal: true,
@@ -22,7 +24,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         username: configService.get('database.username'),
         password: configService.get('database.password'),
         database: configService.get('database.name'),
-        synchronize: false,
+        synchronize: true,
         autoLoadEntities: true,
         logging: configService.get('database.logging'),
         logger: configService.get('database.Logger'),

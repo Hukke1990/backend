@@ -4,6 +4,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Encuesta } from '../../entitites/encuestas.entity';
 import { CreateEncuestaDto } from '../../dtos/create-encuesta.dto';
+import {
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common/exceptions';
 import { v4 } from 'uuid';
 
 @Injectable()
@@ -35,23 +39,68 @@ export class EncuestasService {
   async obtenerEncuesta(
     id: number,
     codigo: string,
-    codigoTipo: CodigoTipoEnum.REPUESTA | CodigoTipoEnum.RESULTADOS,
+    codigoTipo: CodigoTipoEnum.RESPUESTA | CodigoTipoEnum.RESULTADOS,
   ): Promise<Encuesta> {
     const query = this.encuestasRepository
       .createQueryBuilder('encuesta')
       .innerJoinAndSelect('encuesta.preguntas', 'pregunta')
-      .innerJoinAndSelect('pregunta.opciones', 'preguntaOpcion')
+      .leftJoinAndSelect('pregunta.opciones', 'preguntaOpcion')
       .where('encuesta.id = :id', { id });
 
-    if (codigoTipo === CodigoTipoEnum.REPUESTA) {
-      query.andWhere('encuesta.codigoRespuesta = :codigo', { codigo });
-    } else if (codigoTipo === CodigoTipoEnum.RESULTADOS) {
-      query.andWhere('encuesta.codigoResultados = :codigo', { codigo });
+    switch (codigoTipo) {
+      case CodigoTipoEnum.RESPUESTA:
+        query.andWhere('encuesta.codigoRespuesta = :codigo', { codigo });
+        break;
+
+      case CodigoTipoEnum.RESULTADOS:
+        query.andWhere('encuesta.codigoResultados = :codigo', { codigo });
+        break;
     }
 
+    //ordenar preguntas con sus opciones
+    query.orderBy('pregunta.numero', 'ASC');
+    query.addOrderBy('preguntaOpcion.numero', 'ASC');
+
     const encuesta = await query.getOne();
+
     if (!encuesta) {
-      throw new Error('Encuesta no encontrada');
+      throw new BadRequestException('Datos de encuesta no válidos');
+    }
+
+    return encuesta;
+  }
+
+  async obtenerEncuestaConPreguntas(id: number): Promise<any> {
+    const encuesta = await this.encuestasRepository.findOne({
+      where: { id },
+      relations: ['preguntas', 'preguntas.opciones'],
+    });
+
+    if (!encuesta) {
+      throw new NotFoundException('Encuesta no encontrada');
+    }
+
+    return encuesta;
+  }
+
+  async obtenerResultadosPorCodigo(codigo: string): Promise<Encuesta> {
+    const encuesta = await this.encuestasRepository.findOne({
+      where: { codigoResultados: codigo },
+      relations: [
+        'preguntas',
+        'preguntas.opciones',
+        'respuestas',
+        'respuestas.abiertas',
+        'respuestas.abiertas.pregunta',
+        'respuestas.opciones',
+        'respuestas.opciones.opcion',
+      ],
+    });
+
+    if (!encuesta) {
+      throw new NotFoundException(
+        'Encuesta no encontrada con ese código de resultados',
+      );
     }
 
     return encuesta;
