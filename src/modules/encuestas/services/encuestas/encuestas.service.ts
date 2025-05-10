@@ -83,26 +83,47 @@ export class EncuestasService {
     return encuesta;
   }
 
-  async obtenerResultadosPorCodigo(codigo: string): Promise<Encuesta> {
-    const encuesta = await this.encuestasRepository.findOne({
-      where: { codigoResultados: codigo },
-      relations: [
-        'preguntas',
-        'preguntas.opciones',
-        'respuestas',
-        'respuestas.abiertas',
-        'respuestas.abiertas.pregunta',
-        'respuestas.opciones',
-        'respuestas.opciones.opcion',
-      ],
-    });
+  async calcularResultados(id: number, codigo: string): Promise<any> {
+    const encuesta = await this.encuestasRepository
+      .createQueryBuilder('encuesta')
+      .leftJoinAndSelect('encuesta.respuestas', 'respuesta')
+      .leftJoinAndSelect('respuesta.opciones', 'respuestaOpcion')
+      .leftJoinAndSelect('respuestaOpcion.opcion', 'opcionRespuesta')
+      .leftJoinAndSelect('respuesta.abiertas', 'respuestaAbierta')
+      .where('encuesta.id = :id', { id })
+      .andWhere('encuesta.codigoResultados = :codigo', { codigo })
+      .getOne();
 
     if (!encuesta) {
-      throw new NotFoundException(
-        'Encuesta no encontrada con ese código de resultados',
-      );
+      throw new BadRequestException('Encuesta no encontrada o código inválido');
     }
 
-    return encuesta;
+    // Procesar las respuestas para calcular los resultados
+    const resultados = encuesta.respuestas?.reduce((acc, respuesta) => {
+      // Validar que las opciones existan antes de procesarlas
+      if (respuesta.opciones && respuesta.opciones.length > 0) {
+        respuesta.opciones.forEach((opcion) => {
+          if (opcion.opcion && opcion.opcion.texto) {
+            acc[opcion.opcion.texto] = (acc[opcion.opcion.texto] || 0) + 1;
+          }
+        });
+      }
+
+      // Validar respuestas abiertas
+      if (respuesta.abiertas && respuesta.abiertas.length > 0) {
+        respuesta.abiertas.forEach((abierta) => {
+          if (abierta.texto) {
+            acc[abierta.texto] = (acc[abierta.texto] || 0) + 1;
+          }
+        });
+      }
+
+      return acc;
+    }, {});
+
+    return {
+      encuesta: encuesta.id,
+      resultados: resultados || {}, // Asegurarse de devolver un objeto vacío si no hay resultados
+    };
   }
 }

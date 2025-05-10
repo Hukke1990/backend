@@ -48,13 +48,14 @@ export class EncuestasController {
   async verResultadosPorIdYCodigo(
     @Param('id') id: number,
     @Query() dto: ObtenerEncuestaDto,
-  ): Promise<Encuesta> {
+  ): Promise<any> {
     if (dto.tipo !== CodigoTipoEnum.RESULTADOS) {
       throw new BadRequestException(
         'Tipo debe ser RESULTADO para ver resultados',
       );
     }
 
-    return this.encuestasService.obtenerEncuesta(id, dto.codigo, dto.tipo);
+    // Llamar al nuevo método del servicio para calcular los resultados
+    return this.encuestasService.calcularResultados(id, dto.codigo);
   }
 }

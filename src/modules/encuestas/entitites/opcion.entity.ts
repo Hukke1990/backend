@@ -23,4 +23,5 @@ export class Opcion {
   @JoinColumn({ name: 'id_pregunta' })
   @Exclude()
   pregunta: Pregunta;
+  idPregunta: number;
 }
