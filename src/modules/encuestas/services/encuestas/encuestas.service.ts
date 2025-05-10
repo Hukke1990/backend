@@ -86,44 +86,82 @@ export class EncuestasService {
   async calcularResultados(id: number, codigo: string): Promise<any> {
     const encuesta = await this.encuestasRepository
       .createQueryBuilder('encuesta')
+      .leftJoinAndSelect('encuesta.preguntas', 'pregunta')
+      .leftJoinAndSelect('pregunta.opciones', 'preguntaOpcion')
       .leftJoinAndSelect('encuesta.respuestas', 'respuesta')
       .leftJoinAndSelect('respuesta.opciones', 'respuestaOpcion')
       .leftJoinAndSelect('respuestaOpcion.opcion', 'opcionRespuesta')
+      .leftJoinAndSelect('opcionRespuesta.pregunta', 'preguntaDeOpcion')
       .leftJoinAndSelect('respuesta.abiertas', 'respuestaAbierta')
+      .leftJoinAndSelect('respuestaAbierta.pregunta', 'preguntaAbierta')
+
       .where('encuesta.id = :id', { id })
       .andWhere('encuesta.codigoResultados = :codigo', { codigo })
+      .orderBy('pregunta.numero', 'ASC') // Ordenar preguntas por su número
+      .addOrderBy('preguntaOpcion.numero', 'ASC') // Ordenar opciones por su número
       .getOne();
 
     if (!encuesta) {
       throw new BadRequestException('Encuesta no encontrada o código inválido');
     }
+    //console.log(JSON.stringify(encuesta.respuestas, null, 2)); muestra las respuestas que se han dado a la encuesta
 
-    // Procesar las respuestas para calcular los resultados
-    const resultados = encuesta.respuestas?.reduce((acc, respuesta) => {
-      // Validar que las opciones existan antes de procesarlas
-      if (respuesta.opciones && respuesta.opciones.length > 0) {
-        respuesta.opciones.forEach((opcion) => {
-          if (opcion.opcion && opcion.opcion.texto) {
-            acc[opcion.opcion.texto] = (acc[opcion.opcion.texto] || 0) + 1;
-          }
+    // Procesar las preguntas y sus respuestas
+    const resultados = encuesta.preguntas.map((pregunta) => {
+      const resultadoPregunta: any = {
+        pregunta: pregunta.texto,
+        opciones: {}, // Conteo de respuestas por opción
+        respuestasAbiertas: [], // Respuestas abiertas asociadas a la pregunta
+        totalRespuestas: 0, // Total de respuestas para esta pregunta
+      };
+
+      if (pregunta.tipo === 'ABIERTA') {
+        encuesta.respuestas.forEach((respuesta) => {
+          respuesta.abiertas
+            ?.filter((abierta) => abierta.pregunta?.id === pregunta.id)
+            .forEach((abierta) => {
+              if (abierta.texto) {
+                resultadoPregunta.respuestasAbiertas.push(abierta.texto);
+                resultadoPregunta.totalRespuestas++;
+              }
+            });
+        });
+      } else {
+        pregunta.opciones.forEach((opcion) => {
+          resultadoPregunta.opciones[opcion.texto] = 0;
+        });
+
+        encuesta.respuestas.forEach((respuesta) => {
+          respuesta.opciones.forEach((respuestaOpcion) => {
+            if (
+              respuestaOpcion.opcion &&
+              respuestaOpcion.opcion.pregunta?.id === pregunta.id
+            ) {
+              const texto = respuestaOpcion.opcion.texto;
+              resultadoPregunta.opciones[texto] =
+                (resultadoPregunta.opciones[texto] || 0) + 1;
+              resultadoPregunta.totalRespuestas++;
+            }
+          });
         });
       }
 
-      // Validar respuestas abiertas
-      if (respuesta.abiertas && respuesta.abiertas.length > 0) {
-        respuesta.abiertas.forEach((abierta) => {
-          if (abierta.texto) {
-            acc[abierta.texto] = (acc[abierta.texto] || 0) + 1;
-          }
-        });
+      // Si no hay respuestas, agregar un mensaje
+      if (resultadoPregunta.totalRespuestas === 0) {
+        resultadoPregunta.mensaje =
+          'No se han recibido respuestas para esta pregunta.';
       }
 
-      return acc;
-    }, {});
+      return resultadoPregunta;
+    });
 
     return {
-      encuesta: encuesta.id,
-      resultados: resultados || {}, // Asegurarse de devolver un objeto vacío si no hay resultados
+      encuesta: {
+        id: encuesta.id,
+        nombre: encuesta.nombre,
+        codigoRespuesta: encuesta.codigoRespuesta,
+      },
+      resultados,
     };
   }
 }

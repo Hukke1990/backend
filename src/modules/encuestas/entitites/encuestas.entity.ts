@@ -8,6 +8,9 @@ export class Encuesta {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column()
+  nombre: string;
+
   @OneToMany(() => Pregunta, (pregunta) => pregunta.encuesta, {
     cascade: ['insert'],
   })
